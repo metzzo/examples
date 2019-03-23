@@ -4,8 +4,8 @@ import random
 import shutil
 import time
 import warnings
-import sys
 
+import cv2
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -18,6 +18,8 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
+import numpy as np
+from PIL import Image
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -198,9 +200,49 @@ def main_worker(gpu, ngpus_per_node, args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
+    def auto_canny(image, sigma=0.7):
+        # compute the median of the single channel pixel intensities
+        v = np.median(image)
+
+        # apply automatic Canny edge detection using the computed median
+        lower = int(max(0, (1.0 - sigma) * v))
+        upper = int(min(255, (1.0 + sigma) * v))
+        edged = cv2.Canny(image, lower, upper)
+
+        # return the edged image
+        return edged
+
+    def edge_detection_impl(x):
+        x = np.array(x)
+        x = x[..., ::-1]
+
+        img = cv2.blur(x, (5, 5))
+        newImg = np.zeros(img.shape, np.uint8)
+
+        # TODO: instead of simple edge detection use stylized imagenet
+        thresh = auto_canny(image=img)
+        im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(newImg, contours, -1, 255, 6)
+        newImg = cv2.blur(newImg, (5, 5))
+
+
+        newImg2 = np.zeros(img.shape, np.uint8)
+        thresh = cv2.Canny(newImg, 100, 200)
+        im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(newImg2, contours, -1, 255, 3)
+
+        #cv2.imshow('swag', newImg)
+        #cv2.imshow('swag2', newImg2)
+        #cv2.waitKey(0)
+
+        return Image.fromarray(newImg)
+
+    edge_detection = transforms.Lambda(edge_detection_impl)
+
     train_dataset = datasets.ImageFolder(
         traindir,
         transforms.Compose([
+            edge_detection,
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
@@ -218,6 +260,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, transforms.Compose([
+            edge_detection,
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),

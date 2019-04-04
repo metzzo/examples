@@ -222,20 +222,20 @@ def main_worker(gpu, ngpus_per_node, args):
         # TODO: instead of simple edge detection use stylized imagenet
         thresh = auto_canny(image=img)
         im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(newImg, contours, -1, 255, 6)
+        cv2.drawContours(newImg, contours, -1, 255, random.randint(3, 5))
         newImg = cv2.blur(newImg, (5, 5))
 
 
         newImg2 = np.zeros(img.shape, np.uint8)
         thresh = cv2.Canny(newImg, 100, 200)
         im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(newImg2, contours, -1, 255, 3)
+        cv2.drawContours(newImg2, contours, -1, 255, 1)
 
-        #cv2.imshow('swag', newImg)
+        #cv2.imshow('swag', img)1
         #cv2.imshow('swag2', newImg2)
         #cv2.waitKey(0)
 
-        return Image.fromarray(newImg)
+        return Image.fromarray(newImg2)
 
     edge_detection = transforms.Lambda(edge_detection_impl)
 
@@ -327,6 +327,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         losses.update(loss.item(), input.size(0))
         top1.update(acc1[0], input.size(0))
         top5.update(acc5[0], input.size(0))
+
 
         # compute gradient and do SGD step
         optimizer.zero_grad()

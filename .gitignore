@@ -4,3 +4,8 @@ data
 OpenNMT/data
 cpp/mnist/build
 cpp/dcgan/build
+.idea
+*.pth
+*.tar
+venv
+
